@@ -1,4 +1,4 @@
-use std::time::{Duration, Instant};
+use std::time::{Duration};
 use std::thread;
 use std::sync::mpsc;
 use std::sync::mpsc::Receiver;
@@ -9,6 +9,12 @@ fn main() {
     let workflow = Workflow::new(config);
 
     for state in workflow {
+        let message = match state {
+            State::Pomodoro(_) => "Time to work!",
+            State::ShortBreak(_) => "Short break.",
+            State::LongBreak(_) => "Long break.",
+        };
+        println!("{}", message);
         let receiver = state.execute();
         let Message::Timer(message) = receiver.recv().unwrap();
         println!("{}", message)
@@ -64,10 +70,10 @@ impl Iterator for Workflow {
        } else {
            if self.break_counter < 3 {
                self.break_counter += 1;
-               State::Break(self.config.short_break)
+               State::ShortBreak(self.config.short_break)
            } else {
                self.break_counter = 0;
-               State::Break(self.config.long_break)
+               State::LongBreak(self.config.long_break)
            }
        };
         self.was_break = !self.was_break;
@@ -81,7 +87,8 @@ trait Command {
 
 enum State {
     Pomodoro(Duration),
-    Break(Duration),
+    ShortBreak(Duration),
+    LongBreak(Duration),
 }
 
 impl Command for State {
@@ -90,7 +97,8 @@ impl Command for State {
 
         let (duration, message) = match self {
             State::Pomodoro(duration) => (duration, "Time to rest."),
-            State::Break(duration) => (duration, "Break is over. Time to work!"),
+            State::ShortBreak(duration) => (duration, "Break is over."),
+            State::LongBreak(duration) => (duration, "Break is over."),
         };
 
         thread::spawn(move || {
